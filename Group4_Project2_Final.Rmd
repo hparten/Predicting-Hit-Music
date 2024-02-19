@@ -1,0 +1,1138 @@
+---
+title: "STAT 6201 Project 2: Spotify & YouTube"
+author: 'Group 4: Maria Liu, Nick Cagliuso, Christa Lesher, Hallie Parten'
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+date: "2023-05-10"
+---
+
+# Executive Summary
+
+------------------------------------------------------------------------
+
+Spotify's Web API is an open-source interface for programmers to develop applications that interact with Spotify's streaming service. The API has a library of metadata for each Spotify track that includes Audio Features like how danceable or intense a song is. With this interface, listeners can imagine apps that create custom playlists to match their workouts or podcast recommendations based on their search history. Spotify has so clearly cracked the code for how to repackage existing music, but the question on our analysts' minds is could these Spotify metrics of musicality be used to predict the success of future music and music videos? With a strong enough prediction model, industry executives could imagine algorithms that produce hit music.
+
+Music producers aren't out of a job yet! The results of our analysis showed that a model with Audio Features from Spotify's web API is not enough information to usefully predict the popularity of a song on Spotify. Not suprisingly, there are likely other factors that influence a songs popularity that we did not capture in our analysis. Nevertheless, we did find that some of the Audio Features by themselves, holding all else constant, are useful predictors of a song's popularity. To help artists/producers looking to boost their streaming, we recommend keeping the intensity of the track low, and reducing talking noises and acoustic sounds. We also identified a significant positive relationship between loudness (measured in decibels) of a song and its popularity. Spotify says that its "loudness" feature is the "primary psychological correlate of physical strength". This suggests that listeners love to listen to strong, powerful songs and artists should tap in.
+
+We were also interested to see if the Audio Features were better at predicting popularity on a different streaming platform/modality. On YouTube, songs are streamed as videos and listeners interact with the videos often through the comments. We created a factor from the number of comments a video received versus its views as a measure of strong vs. weak reaction. The results of this analysis also showed that a model with Audio Features does not predict if a song will perform well as a YouTube video by eliciting a high response from its viewers. We did however, find meaningful evidence that a song is more likely to cause a high reaction on YouTube with a higher amount of speech in the song. We acknowledge that our analysis does not consider the valence of the reaction, therefore we cannot know whether more speech elicits a positive or negative reaction.
+
+Interestingly, higher amounts of speech in a song was negatively related to streams on Spotify but positively related to a strong reaction on YouTube. Based on this finding, we recommend that artists or producers include speech in a song with caution and careful intention.
+
+# Data Description
+
+Our data set, found on Kaggle and titled [[**"Spotify and YouTube,"**]{.underline}](https://www.kaggle.com/datasets/salvatorerastelli/spotify-and-youtube?resource=download) features multiple song characteristic and popularity metrics for the ten most popular songs (last updated on 2/7/23) -- by number of Spotify streams -- of approximately two thousand different musical artists, for a total of nearly 21,000 observations and 26 variables.
+
+Many variables are "Audio Features," a tool available through [[**Spotify's web API**]{.underline}](https://developer.spotify.com/documentation/web-api/reference/get-audio-features), which describe songs on a zero-to-one scale by characteristics such as "danceability," "energy," and "acousticness." Throughout our report we explore the role of various musicality factors, popularity metrics, and track features that includes the following variables below:
+
+**Musicality Factors**
+
+-   **Danceability**: suitability of a track is for dancing based on a combination of musical elements including tempo, rhythm stability, beat strength, and overall regularity. A value of 0.0 is least danceable and 1.0 is most danceable.
+
+-   **Energy**: is a measure from 0.0 to 1.0 and represents a perceptual measure of intensity and activity. Typically, energetic tracks feel fast, loud, and noisy.
+
+-   **Key**: the key the track is in. Integers map to pitches using standard Pitch Class notation. If no key was detected, the value is -1.
+
+-   **Loudness**: the overall loudness of a track in decibels (dB). Loudness values are averaged across the entire track and are useful for comparing relative loudness of tracks. Loudness is the quality of a sound that is the primary psychological correlate of physical strength (amplitude). Values typically range between -60 and 0 db.
+
+-   **Speechiness**: detects the presence of spoken words in a track. The more exclusively speech-like the recording (e.g. talk show, audio book, poetry), the closer to 1.0 the attribute value. Values above 0.66 describe tracks that are probably made entirely of spoken words. Values between 0.33 and 0.66 describe tracks that may contain both music and speech, either in sections or layered, including such cases as rap music. Values below 0.33 most likely represent music and other non-speech-like tracks.
+
+-   **Acousticness**: a confidence measure from 0.0 to 1.0 of whether the track is acoustic.
+
+-   **Instrumentalness**: predicts whether a track contains no vocals. "Ooh" and "aah" sounds are treated as instrumental in this context. Rap or spoken word tracks are clearly "vocal". Values above 0.5 are intended to represent instrumental tracks, but confidence is higher as the value approaches 1.0.
+
+-   **Liveness**: detects the presence of an audience in the recording. Higher liveness values represent an increased probability that the track was performed live. A value above 0.8 provides strong likelihood that the track is live.
+
+-   **Valence**: a measure from 0.0 to 1.0 describing the musical positiveness conveyed by a track. Tracks with high valence sound more positive (e.g. happy, cheerful, euphoric), while tracks with low valence sound more negative (e.g. sad, depressed, angry).
+
+-   **Tempo**: the overall estimated tempo of a track in beats per minute (BPM). In musical terminology, tempo is the speed or pace of a given piece and derives directly from the average beat duration.
+
+-   **Duration_ms**: the duration of the track in milliseconds.
+
+**Popularity Metrics:**
+
+-   **Stream**: number of streams of the song on Spotify.
+
+-   **Views**: number of views.
+
+-   **Likes**: number of likes.
+
+-   **Comments**: number of comments.
+
+**Track Features:**
+
+-   **Artist**: name of the artist.
+
+-   **Album_type**: indicates if the song is released on Spotify as a single or contained in an album.
+
+-   **Licensed**: Indicates whether the video represents licensed content, which means that the content was uploaded to a channel linked to a YouTube content partner and then claimed by that partner.
+
+-   **official_video**: boolean value that indicates if the video found is the official video of the song.
+
+------------------------------------------------------------------------
+
+# Linear Regression
+
+**Can we use a song's musicality factors to predict the number of streams a song gets on Spotify?**
+
+It has never been easier to access or create music than in this digital age where you can use millions of apps to stream, view, learn, and sample any genre in the world. Additionally, it is difficult to know whether a song will be a "hit" until it has dropped and been judged in the court of social media approval. Previously unknown artists can become an overnight sensation when their song goes viral on TikTok or YouTube. This is frustrating for record companies and artists who make money from generating as many streams and views as possible. In this report, we look into what features of a song's musicality impact its popularity. A model that is ultimately useful in predicting a song's popularity could help decision makers in the music industry crack the code on what makes a song a "hit".
+
+We used multiple linear regression to investigate this, with the response variable *Stream* (a frequency count of streams on Spotify) as a way to measure a song's popularity. Our data set provided various measures of musicality, many from Spotify's web API, which describes songs on a zero-to-one scale by characteristics such as *danceability*, *energy*, and *acousticness*, that we assessed as predictors.
+
+# Data Visualizations & Model Building
+
+**Data Wrangling**
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(corrplot)
+library(ggpubr)
+library(leaps)
+#import data
+Data <- read.csv("Spotify_Youtube.csv", header = TRUE)
+
+#ensure Album_type is a factor
+Data$Album_type <- factor(Data$Album_type)
+```
+
+We produced an initial model with all of the observations in our data set using the predictors that were suggested from consensus among the automatic search procedures (forward, backward, and step-wise selection). We regressed *Stream* on *Energy*, *Loudness*, *Speechiness*, *Acousticness*, *Instrumentalness*, *Liveness* and *Duration_ms*. We then assessed the regression assumptions to see if the information from various significance tests could be interpreted.
+
+From our residual plot *(below)*, we could see the assumptions of homoscedasticity (constant variance of the residuals) and zero mean of the residuals were violated. We then plotted the distribution of our response variable, *Stream*, *(below)* to see if a logarithmic transformation of the response was appropriate. Given the significant right-skew of our response variable, we decided that a log transformation of the response would be appropriate and likely also improve the normality of the residuals.
+
+From our ACF plot *(below)*, we could see that the assumption of independence was clearly violated. Because our data set contains observations for the ten most popular songs of approximately 2,000 different music artists, we theorized that the observations for each artist are not independent of each other. This means that the value of one observation is likely influenced by the value of another observation. In response to this finding we decided to only keep the one song with the highest number of streams from each artist, and then build and test the model from that subset of our original data set.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+##model A
+resultA <- lm(Stream~Energy + Loudness + Speechiness + Acousticness + Instrumentalness + Liveness + Duration_ms, data=Data)
+
+##distribution of response
+distA <- ggplot(Data ,aes(x=Stream))+
+  geom_density()+ 
+  labs(title="Distribution of Stream")
+
+##check regression assumptions on model A##
+
+##residual plot
+yhatA<-resultA$fitted.values 
+resA<-resultA$residuals
+resDF<-data.frame(yhatA,resA)
+
+resplotA<- resDF %>% 
+  ggplot(aes(x=yhatA,y=resA))+
+  geom_point()+
+  geom_hline(yintercept=0, color="red")+
+  labs(x="Fitted y",
+       y="Residuals",
+       title="Residual Plot")
+
+ggpubr::ggarrange(resplotA, distA)
+
+acf(resA, main="ACF Plot of Residuals")
+```
+
+Our data set with one observation per artist, after removing any observations with missing values, had 2,057 observations.
+
+We also chose to split this data set to build our model. The goal of our model is both prediction and estimation. We are interested in estimating the relationship between a song's various musicality factors and its overall streaming popularity in order to use our model to predict whether a song will achieve anticipated streaming numbers. Given that one of the goals of our model is prediction, we decided to use an 80/20 split with random selection and no replacement, to ensure that we had enough data to learn from while building our model and still had sufficient unseen data to evaluate the model's prediction performance.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#create data set with 1 obs per artist
+Max_Data <- Data %>%  
+  group_by(Artist) %>% 
+  slice(which.max(Stream))
+
+#keep only musicality variables 
+Max_Data <- Max_Data %>% 
+  dplyr::select(Stream,Danceability,Energy,Key,Loudness,Speechiness,Acousticness,Instrumentalness,Liveness,Valence,Tempo,Duration_ms,Album_type, Artist)
+
+#find missing values. 0 missing values.
+sum(is.na(Max_Data))
+
+##80-20 split
+RNGkind(sample.kind = "Rejection")
+set.seed(005)
+sample<-sample.int(nrow(Max_Data), floor(.80*nrow(Max_Data)), replace = F)
+train<-Max_Data[sample, ]
+test<-Max_Data[-sample, ]
+
+#mutate Stream 
+train <- train %>% 
+  dplyr::mutate(lnStream = log(Stream))
+```
+
+**Data Visualizations**
+
+With our estimation data set defined, we next chose to perform some exploratory data analysis using data visualization. *We present our visualizations and commentary below.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pairs(~ lnStream + Danceability + Key + Energy + Loudness + Speechiness + Acousticness + Instrumentalness + Liveness + Valence + Tempo + Duration_ms, data = train, lower.panel=NULL)
+```
+
+As can be seen in the scatterplot matrix above, each of our musicality factors did not appear to be strongly correlated with our response variable, the natural log of *Stream*. We did notice however that many of the scatter plots of musicality factors against *lnStream* followed noticeable patterns, rather than simply showing zero correlation. For example, many of the scatter plots, such as *Energy* against *lnStream*, have most of their observations grouped in the upper half of the plot with even horizontal spread. Furthermore, a potential concern with our data was that some musicality factors could be correlated with each other. For example, does the fact that a song is more acoustic mean it will always have low *Loudness* and *Energy* measures, rendering *Acousticness* useless to our prediction equation? Luckily, very few of our musicality factors appeared to be correlated with one another, perhaps with the exception of *Loudness* and *Energy*. Later on in this report, we took more formal measures to formally address any concerns of multicollinearity negatively impacting the estimation or performance of our model.
+
+Next, we investigated the distributions of each predictor separately for clustering around particular rangers or the visual appearance of outliers. *We present our visualizations and commentary below.*
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+DViolin <- ggplot(train, aes(x=factor(0), y=Danceability))+
+geom_violin()+
+labs(x="Danceability", y="Distribution")
+
+DBox <- ggplot(train, aes(x=factor(0), y=Danceability))+
+geom_boxplot()+
+labs(x="Danceability", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+KViolin <- ggplot(train, aes(x=factor(0), y=Key))+
+geom_violin()+
+labs(x="Key", y="Distribution")
+
+KBox <- ggplot(train, aes(x=factor(0), y=Key))+
+geom_boxplot()+
+labs(x="Key", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+EViolin <- ggplot(train, aes(x=factor(0), y=Energy))+
+geom_violin()+
+labs(x="Energy", y="Distribution")
+
+EBox <- ggplot(train, aes(x=factor(0), y=Energy))+
+geom_boxplot()+
+labs(x="Energy", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+LViolin <-ggplot(train, aes(x=factor(0), y=Loudness))+
+geom_violin()+
+labs(x="Loudness", y="Distribution")
+
+LBox <- ggplot(train, aes(x=factor(0), y=Loudness))+
+geom_boxplot()+
+labs(x="Loundess", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+SViolin <- ggplot(train, aes(x=factor(0), y=Speechiness))+
+geom_violin()+
+labs(x="Speechiness", y="Distribution")
+
+SBox <- ggplot(train, aes(x=factor(0), y=Speechiness))+
+geom_boxplot()+
+labs(x="Speechiness", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+AViolin <- ggplot(train, aes(x=factor(0), y=Acousticness))+
+geom_violin()+
+labs(x="Acousticness", y="Distribution")
+
+ABox <- ggplot(train, aes(x=factor(0), y=Acousticness))+
+geom_boxplot()+
+labs(x="Acousticness", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+IViolin <- ggplot(train, aes(x=factor(0), y=Instrumentalness))+
+geom_violin()+
+labs(x="Instrumentalness", y="Distribution")
+
+IBox <- ggplot(train, aes(x=factor(0), y=Instrumentalness))+
+geom_boxplot()+
+labs(x="Instrumentalness", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+LiViolin <- ggplot(train, aes(x=factor(0), y=Liveness))+
+geom_violin()+
+labs(x="Liveness", y="Distribution")
+
+LiBox <- ggplot(train, aes(x=factor(0), y=Liveness))+
+geom_boxplot()+
+labs(x="Liveness", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+VViolin <- ggplot(train, aes(x=factor(0), y=Valence))+
+geom_violin()+
+labs(x="Valence", y="Distribution")
+
+VBox <- ggplot(train, aes(x=factor(0), y=Valence))+
+geom_boxplot()+
+labs(x="Valence", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+TViolin <- ggplot(train, aes(x=factor(0), y=Tempo))+
+geom_violin()+
+labs(x="Tempo", y="Distribution")
+
+TBox <- ggplot(train, aes(x=factor(0), y=Tempo))+
+geom_boxplot()+
+labs(x="Tempo", y="Distribution")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+DuViolin <- ggplot(train, aes(x=factor(0), y=Duration_ms))+
+geom_violin()+
+labs(x="Duration", y="Distribution")
+
+DuBox <- ggplot(train, aes(x=factor(0), y=Duration_ms))+
+geom_boxplot()+
+labs(x="Duration", y="Distribution")
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggarrange(DViolin, KViolin, EViolin, LViolin, SViolin, AViolin, IViolin, LiViolin, VViolin, TViolin, DuViolin)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggarrange(DBox, KBox, EBox, LBox, SBox, ABox, IBox, LiBox, VBox, TBox, DuBox)
+```
+
+The tables above are respective Violin and Box Plots for each of our musicality factors using our training data. As was suggested by our previous scatter plot matrix, many of these factors struggle with very uneven distribution and a multitude of outlier observations. For example, *Instrumentalness* appears to be a factor with the overwhelming majority of scores extremely close to zero -- the bottom end of the metric's zero-to-one range. As such, any songs with an *Instrumentalness* score anywhere other than almost zero makes it a statistical outlier. Given that our data features the most popular song of over 1,600 artists, this could simply indicate that very few instrumental songs garner lots of Spotify streams. Furthermore, while this is a valuable insight in general, it sheds light on a potential shortfall of our data set: our data might suffer from inherent bias towards popular songs in the first place. That is, if certain musicality factors do indeed cause songs to be streamed more often in reality, it might not actually show up in our model because these songs are all popular in the first place and have corresponding musicality factors with constrained ranges. If our data contained 1,600 "random" songs, for example, we might have a better understanding of the musicality factors of "unpopular" versus "popular" songs (in terms of Spotify Streams).
+
+**Model Building**
+
+After log transforming the response variable, we decided to re-run the automatic search procedures and rank all possible regressions using the BIC, Mallow's $C_p$, and $R^2_{adj}$. We found two best models recommended by these techniques. Model #1 was recommended by Mallow's $C_p$, $R^2_{adj}$, and consensus among the step-wise selection techniques. Model #2 was recommended by the BIC, which institutes a greater penalty for adding regressors.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#all possible regressions
+allreg <- regsubsets(lnStream~Danceability+Energy+Key+Loudness+Speechiness+Acousticness+Instrumentalness+Liveness+Valence+Tempo+Duration_ms, data=train, nbest=1, nvmax=11, really.big=T)
+summary(allreg)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+which.max(summary(allreg)$adjr2)
+which.min(summary(allreg)$cp)
+which.min(summary(allreg)$bic)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+##automatic search procedures##
+#define intercept only model 
+regnull <- lm(lnStream~1, data=train)
+
+##define model with all quantitative predictors
+regfull <- lm(lnStream~Danceability+Energy+Key+Loudness+Speechiness+Acousticness+Instrumentalness+Liveness+Valence+Tempo+Duration_ms, data=train)
+
+#with AIC, the smaller the better.
+##forward selection
+regfit_fwd <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
+regfit_bwd <- step(regfull, scope=list(lower=regnull, upper=regfull), direction="backward")
+regfit_step <- step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
+coef(regfit_step) #uses AIC
+coef(regfit_fwd)
+coef(regfit_bwd)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+print('Model #1')
+coef(allreg, 9) #adjr2 & mallow's cp & AIC (automatic search procedures)
+print('Model #2')
+coef(allreg, 4) #bic institutes a greater penalty for adding regressors
+```
+
+**Model #1**
+
+First, we performed a thorough analysis of Model #1. We regressed *lnStream* on *Energy*, *Loudness*, *Speechiness*, *Acousticness*, *Instrumentalness*, *Liveness*, *Duration_ms*, *Danceability*, and *Valence*. *We display the results from the tests of our regression assumptions below.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+##drop predictors disregarded by automatic search procedure.
+
+##run MLR##
+
+result <- lm(lnStream~Energy + Loudness + Speechiness + Acousticness + Instrumentalness + Liveness + Duration_ms + Danceability + Valence, data=train)
+
+##check regression assumptions##
+##residual plot
+yhat<-result$fitted.values 
+res<-result$residuals
+train<-data.frame(train,yhat,res)
+
+train %>% 
+  ggplot(aes(x=yhat,y=res))+
+  geom_point()+
+  geom_hline(yintercept=0, color="red")+
+  labs(x="Fitted y",
+       y="Residuals",
+       title="Residual Plot")
+
+acf(res, main="ACF Plot of Residuals")
+
+qqnorm(res)
+qqline(res, col="red")
+```
+
+From the residual plot above, we see that the issue of heteroscedasticity was mostly resolved. We also see that the mean of the residuals is approximately zero because there is an even distribution of residuals about the horizontal axis. From the ACF plot, we see that the independence assumption is met, given that none of the lags exceed the critical values. Lastly, from the QQ plot, we see that the residuals follow closely a normal distribution.
+
+Given the linear regression assumptions appeared to be relatively met by these tests, we turned our attention to the statistical significance our our model and its coefficients *(below)*.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(result)
+```
+
+The first question we sought to answer about our model was: Is our model, overall, useful in predicting the response? The results from the ANVOA F test show that our p-value, 2.2 x 10\^-16, is less than the significance level, 0.05. Therefore we can reject the null hypothesis that all of our coefficients are equal to 0, and conclude that at least some our predictors are useful in estimating the response.
+
+The second question we sought to answer about our model was: Are each of our individual predictors useful in estimating the response? The results from the t-tests on each coefficient show that *Instrumentalness*, *Valence*, and *Liveness* potentially do not significantly contribute to the model, given the other predictors. Next, we decided to consider dropping all three as a subset of the predictors from the model. The results from our first partial F test (not pictured) indicated that at least one of the coefficients in our subset significantly contributed to the model. Next, we considered dropping *Instrumentalness* and *Valence* as a subset of the predictors from the model because they had the two highest p-values for their respective t-tests. *We display the results from our partial F test below*.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#partial f test
+reduced<-lm(lnStream~Energy + Loudness + Speechiness + Acousticness + Liveness + Duration_ms + Danceability, data=train)
+
+anova(reduced, result)
+```
+
+From the partial F test above, we saw that our p-value, 0.0818 was greater than our significance level of 0.05. This indicated that we could not reject the null hypothesis that the coefficients in our subset to drop are equal 0. Therefore, we did not have significant evidence that *Instrumentalness* and *Valence* contributed to the explanation or prediction of the response. Therefore, we decided to move forward in our model-building with the reduced model.
+
+*We also checked the regression assumption for this reduced model by evaluating the residual plot, QQ plot, and ACF plot. We did not reprint these plots because they virtually matched the plots above of the previous full model.*
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+##check regression assumptions##
+##residual plot
+yhatR<-reduced$fitted.values 
+resR<-reduced$residuals
+train<-data.frame(train,yhatR,resR)
+
+train %>% 
+  ggplot(aes(x=yhatR,y=resR))+
+  geom_point()+
+  geom_hline(yintercept=0, color="red")+
+  labs(x="Fitted y",
+       y="Residuals",
+       title="Residual Plot")
+
+acf(resR, main="ACF Plot of Residuals")
+
+qqnorm(resR)
+qqline(resR, col="red")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(reduced)
+```
+
+From the summary of our reduced model above, we see that the t-tests for *Liveness* and *Danceability* now have p-values greater than the significance level of 0.05, suggesting the need for further investigation. From here, we decided to consider multicollinearity, near-linear dependencies among the regressors, that could lead to insignificant t-tests and poor estimates of the regression coefficients. *Below we show the VIF for each term in the model, which measures the combined effect of the dependencies among regressors on the variance of that term.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(faraway)
+vif(reduced)
+```
+
+None of the VIF's for any of the predictors in our model are high enough to indicate that multicollinearity among our predictors is a concern in this model. *Next, we considered the partial residual plots for our two insignificant predictors in our model, displayed below.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Liveness
+reduced.L<- lm(lnStream~Energy+Loudness+Speechiness+Acousticness+Danceability+Duration_ms, data=train)
+result.L<-lm(Liveness~Energy+Loudness+Speechiness+Acousticness+Duration_ms+Danceability, data=train)
+res.y.L<-reduced.L$residuals
+res.L<-result.L$residuals
+
+plot(res.L, res.y.L, main="Partial Residual Plot of Liveness")
+result.res.L<-lm(res.y.L~res.L)
+#summary(result.res.L)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Danceability
+reduced.D<-lm(lnStream~Energy+Loudness+Speechiness+Acousticness+Liveness+Duration_ms, data=train)
+result.D<-lm(Danceability~Energy+Loudness+Speechiness+Acousticness+Liveness+Duration_ms, data=train)
+res.y.D<-reduced.D$residuals
+res.D<-result.D$residuals
+
+plot(res.D, res.y.D, main="Partial Residual Plot of Danceability")
+result.res.D<-lm(res.y.D~res.D)
+#summary(result.res.D)
+```
+
+Our partial residual plots do not show any patterns that would indicate the need to transform these predictors. Therefore, we chose only first order terms for Model #1 and kept all predictors that were significant within a 90% significance level. *We proceed with our investigation of outliers qnd influential observations below.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#externally studentized residuals 
+ext.student.res<-rstudent(reduced)
+
+##outlier detection##
+#crit value using Bonferroni
+n<-dim(train)[1]
+p<-8
+crit<-qt(1-0.05/(2*n), n-p-1)
+
+high_ext.res<- ext.student.res[abs(ext.student.res)>crit]
+high_ext.res_num <- labels(high_ext.res)
+length(high_ext.res_num)
+```
+
+We found seven externally-studentized residuals that were above the critical value.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##high leverage points
+lev<-lm.influence(reduced)$hat
+high_lev <- lev[lev>2*p/n]
+length(high_lev)
+high_lev_num <- labels(high_lev)
+```
+
+We found 133 leverages that were above the threshold of $2\frac{p}{n}$.
+
+We noted, after looking for patterns among these high-leverage points in the data frame, that the majority of these high-leverage points appeared to be outlying in the *Duration_ms* predictor space. We also noted that the longest duration song is 10.72 minutes.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##Cook's distance 
+COOKS<-cooks.distance(reduced)
+Cooks_above <- COOKS[COOKS>qf(0.5,p,n-p)]
+length(Cooks_above)
+```
+
+We found 0 points that were above the threshold for Cook's Distance. Cook's distance measures the distance that a the vector of fitted values moves when observation "i" is removed from the regression model, and is therefore a good metric for estimating the effect of removing a particular data point on the model's parameter estimates. Given that we found 0 values that were above the threshold, we conclude that few individual data points had a significant impact on the model's parameter estimates.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##DFFITS
+DFFITS<-dffits(reduced)
+DFFITS_above <- DFFITS[abs(DFFITS)>2*sqrt(p/n)]
+DFFITS_above_num <- labels(DFFITS_above)
+length(DFFITS_above)
+```
+
+The DFFITS quantifies the number of standard deviations that the fitted value changes when the "ith" data point is omitted and is therefore a good metric for estimating the effect of removing of a particular data point on the model's individual predictions. As a cutoff value, we used $2\sqrt{\frac{p}{n}}$. We found 71 points that were above the threshold for DFFITS.
+
+DFFITS is the value of R-student multiplied by the leverage of the "ith" observation. R-student captures whether the data point is an outlier, and the position of $h_{ii}$ in the formula for DFFITS captures whether the data point high leverage. DFFITS is a measure of how influential an observation is overall, and leverages and residuals would need to be examined independently to determine the source the of the influence. *We searched the vector of the DFFITS values above threshold for matches with the high-leverages and matches with the high externally studentized residuals below.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+difference <- setdiff(DFFITS_above_num, high_lev_num)
+print('DFFITS & Leverage matches:')
+length(DFFITS_above) - length(difference)
+
+print('DFFITS & Ext. Student-Res matches:')
+difference2 <- setdiff(high_ext.res_num, DFFITS_above_num)
+length(high_ext.res_num) - length(difference2)
+```
+
+33 of the 55 observations identified as influential by DFFITS are also high leverage. All seven of the observations identified as outliers by the externally-studentized residuals were matched in the DFFITS vector.
+
+We know that often times, variable selection can correct an issue with influence or leverage. As such, we explored whether dropping the predictor, *Duration_ms*, from our model reduced the problem of outliers and high-leverage points. Firstly, from our previous visual analysis, it was apparent that the duration of most songs in this dataset are tightly grouped around a small time interval, while many extreme outliers are present. Secondly, from our previous investigation, the majority of high-leverage points were outlying in the "Duration_ms" predictor space. Thirdly, contextually speaking, we could afford to attempt removing "Duration_ms" from our model as a matter of trial-and-error more than other predictors because it is not a true "musicality factor" that our fundamental research question aims to address.
+
+*Below, we conduct the same tests for outliers and influential points as was previously done, only now without "Duration_ms" in our model.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+reducedB<-lm(lnStream~Energy + Loudness + Speechiness + Acousticness + Liveness + Danceability, data=train)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##check regression assumptions##
+##residual plot
+yhatB<-reducedB$fitted.values 
+resB<-reducedB$residuals
+train<-data.frame(train,yhatB,resB)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#externally studentized residuals 
+ext.student.resB<-rstudent(reducedB)
+
+##outlier detection##
+#crit value using Bonferroni
+n<-dim(train)[1]
+p<-7
+crit<-qt(1-0.05/(2*n), n-p-1)
+
+high_ext.resB<- ext.student.resB[abs(ext.student.resB)>crit]
+high_ext.res_numB <- labels(high_ext.resB)
+print("High Externally Studentized Residuals")
+length(high_ext.res_numB)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##high leverage points
+levB<-lm.influence(reducedB)$hat
+high_levB <- levB[levB>2*p/n]
+print('High Leverages')
+length(high_levB)
+high_lev_numB <- labels(high_levB)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##Cook's distance 
+COOKSB<-cooks.distance(reducedB)
+print('High Cooks Distance')
+cooks_aboveb <- COOKSB[COOKSB>qf(0.5,p,n-p)]
+length(cooks_aboveb)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##DFFITS
+DFFITSB<-dffits(reducedB)
+DFFITS_aboveB <- DFFITSB[abs(DFFITSB)>2*sqrt(p/n)]
+DFFITS_above_numB <- labels(DFFITS_aboveB)
+print('High DFFITS')
+length(DFFITS_aboveB)
+```
+
+Ultimately, the results show that the trial-and-error attempt at removing *Duration_ms* from our model did little to reduce the number of outliers or influential points. Using externally studentized residuals and the Bonferroni method left us with the same number of outlier observations (seven); we also end up with an similar number of high-leverage points (127) as measured using the hat matrix and a similar number of influential observations (66) as measured by DFFITS. Ultimately, given these results and the fact that *Duration_ms* was statistically significant within our model anyway, we decided to keep it as a predictor in our Model #1.
+
+To conclude our outlier investigation for Model #1, we acknowledged that the significant number of influential observations, identified by DFFITS, likely have considerable influence on the overall predictive performance of this model.
+
+**Model #2**
+
+Second, we performed a thorough analysis of Model #2. We regressed *lnStream* on *Energy*, *Loudness*, *Speechiness*, *Acousticness*.
+
+*We checked the regression assumption for Model #2 by evaluating the residual plot, QQ plot, and ACF plot. We did not print these plots because they virtually matched the plots of Model #1 and we concluded that the assumptions were met.*
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+result2 <- lm(lnStream~Energy + Loudness + Speechiness + Acousticness, data=train)
+
+##check regression assumptions##
+##residual plot
+yhat2<-result2$fitted.values 
+res2<-result2$residuals
+train2<-data.frame(train,yhat2,res2)
+
+train %>% 
+  ggplot(aes(x=yhat2,y=res2))+
+  geom_point()+
+  geom_hline(yintercept=0, color="red")+
+  labs(x="Fitted y",
+       y="Residuals",
+       title="Residual Plot")
+
+acf(res, main="ACF Plot of Residuals")
+
+qqnorm(res2)
+qqline(res2, col="red")
+```
+
+*Below we print the summary of the t-tests and VIFs for each coefficient.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(result2)
+vif(result2)
+```
+
+The results from the t-tests on each coefficients show that all of our predictors are statistically significant. Additionally, none of the VIFs indicate that multicollinearity is a concern among the predictors in Model #2. *Below, we present the findings from our outlier investigation.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#externally studentized residuals
+ext.student.res2<-rstudent(result2)
+n<-dim(train)[1]
+p2<-5
+crit<-qt(1-0.05/(2*n), n-p2-1)
+ex.student.res2_above <- ext.student.res2[abs(ext.student.res2)>crit]
+print('High Externally Studentized Residuals')
+length(ex.student.res2_above)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#high leverage points 
+lev2<-lm.influence(result2)$hat
+high_lev2 <- lev2[lev2>2*p2/n]
+print('High Leverages')
+length(high_lev2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Cook's Distance
+COOKS2<-cooks.distance(result2)
+COOKS2_above <- COOKS[COOKS>qf(0.5,p2,n-p2)]
+print('High Cooks Distance')
+length(COOKS2_above)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#DFFITS
+DFFITS2<-dffits(result2)
+DFFITS2_above<-DFFITS2[abs(DFFITS2)>2*sqrt(p2/n)]
+print('High DFFITS')
+length(DFFITS2_above)
+```
+
+Ultimately, our outlier investigation for Model #2 mirrored the results of our investigation from Model #1. Given that we did not make any manual adjustments to Model #1, with a similar number of influential observations, we did not recommend any adjustments to Model #2 based on this investigation. We acknowledge that both models have a significant number of high leverage and influential observations, identified by DFFITS, that likely affect their respective prediction performance.
+
+**Compare Model #1 and Model #2**
+
+The final step of our model building process was to compare our final two "candidate" models for their fit of the data and their predictive ability.
+
+**Model #1:**
+
+$Stream^*_i = 20.98 -1.108energy_i + .06078loudness_i - 2.015speechiness_i - 1.017acousticness_i - .3489liveness_i -.000001133duration_i + .3275danceability_i$ where $Stream^*_i = ln(Stream)_i$
+
+**Model #2:**
+
+$Stream^*i = 21.00448 - 1.25405energy_i + 0.06680loudness_i - 1.84738speechiness_i - 1.06978acousticness_i$ where $Stream^*_i = ln(Stream)_i$
+
+We began by comparing the $R^2_{adj}$, which is a measure of the adequacy of the regression model and is useful when comparing differently-sized models. We used the $R^2_{adj}$ as one of the original criteria for selecting our subset model, however, given that we dropped additional predictors to arrive at Model #1, *we present the* $R^2_{adj}$ *for Model #1 and Model #2 below.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+print('Model #1')
+summary(reduced)$adj.r.squared
+
+print('Model #2')
+summary(result2)$adj.r.squared
+```
+
+Based on the $R^2_{adj}$, we concluded that Model #1 fit the data slightly better than Model #2. Next, we compared their PRESS statistics (calculated based on the training data), for which a small value is desired for stronger prediction potential and is useful for discriminating between alternate models. We also computed the $R^2$ for prediction, which approximates how much variability in new observations the model might be expected to explain (higher numbers are better). *Below, we print the values of these statistics for each model.*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#PRESS - predicted residual sums of squares
+PRESS <- function(linear.model) {
+  #' calculate the predictive residuals
+  pr <- residuals(linear.model)/(1-lm.influence(linear.model)$hat)
+  #' calculate the PRESS
+  PRESS <- sum(pr^2)
+  
+  return(PRESS)
+}
+
+pred_r_squared <- function(linear.model) {
+  #' Use anova() to get the sum of squares for the linear model
+  lm.anova <- anova(linear.model)
+  #' Calculate the total sum of squares
+  tss <- sum(lm.anova$'Sum Sq')
+  # Calculate the predictive R^2
+  pred.r.squared <- 1-PRESS(linear.model)/(tss)
+  
+  return(pred.r.squared)
+}
+
+print ('Model #1 PRESS')
+PRESS(reduced)
+print ('Model #1 R Squared Prediction - PRESS')
+pred_r_squared(reduced)
+
+print ('Model #2 PRESS')
+PRESS(result2)
+print('Model #2 R Squared Prediction - PRESS')
+pred_r_squared(result2)
+```
+
+Model #1 has a smaller PRESS statistic and a larger $R^2$ for prediction than Model #2, which indicated that Model #1 would be able to explain more variability in new observations than Model #2. That said, both values are small, under 0.1, which suggests that neither model has strong predictive ability.
+
+The $R^2$ calculated from the PRESS statistic is a proxy measure of a model's predictive ability because it is a measure of internal validity and is not derived from unseen data points. To externally validate the predictive ability our models, we fit our *test* data to each model and calculated the mean square error of the test data.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+test_1 <- predict(reduced, test, se.fit = TRUE)
+test_2 <- predict(result2, test, se.fit = TRUE)
+n.test <- dim(test)[1]
+
+compare <- data.frame(log(test$Stream), test_1$fit, test_2$fit)
+#calculate predication error for Model #1 and Model #2
+compare <- compare %>% 
+  mutate(pe_m1 = log.test.Stream. - test_1.fit) %>% 
+  mutate(pe_m2 = log.test.Stream. - test_2.fit)
+
+MSE1 <- sum(compare$pe_m1^2)
+MSE2 <- sum(compare$pe_m2^2)
+
+print ('MSE of test data - Model 1') 
+MSE1
+print('MSE of test data - Model 2')
+MSE2
+```
+
+The MSE of both models to the test data is high. We do see Model #1 with a slightly lower MSE than Model #2, however the difference is marginal. This external measure of predictive potential confirms that both of our models are not useful overall for predicting the number of streams a song generates on Spotify.
+
+In sum, both Model #1 and Model #2 have the same signs and relative magnitudes for the coefficients they share. Both models also demonstrate relatively low multicollinearity among the predictors and similar patterns among their influential and high-leverage observations. While we did find that Model #1 had a marginally better "fit" to the estimation data and marginally better performance on both the internal and external measures of predictive ability, both neither model performs well on prediction or inference. Therefore, we base our recommendation on the model that we think will be more useful to our client, music industry executives. We recommend Model #2 because all of its coefficients are significant based on the results of the t-tests. These coefficients provide music industry executives with some advice on how to adjust or tinker with their songs to boost streams.
+
+# Conclusion
+
+**Can we use a song's musicality factors to predict the number of streams a song gets on Spotify?**
+
+**Model #2:**$Stream^*i = 21.00448 - 1.25405energy_i + 0.06680loudness_i - 1.84738speechiness_i - 1.06978acousticness_i$ where $Stream^*_i = ln(Stream)_i$
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#exponentiate coefficients for interpretability 
+energy <- (exp(-1.244505) - 1) *100
+loudness <- (exp(0.06680) -1) *100
+speechiness <- (exp(-1.84738) - 1) *100
+acousticness <- (exp(-1.06978) - 1) *100
+energy
+loudness
+speechiness
+acousticness
+```
+
+From our model, we learned that we cannot predict well the number of streams a song gets on Spotify using just a song's musicality factors. Likely, the recipe for success includes other ommitted variables that were not included in our original data set, perhaps even some indescribeable "secret sauce". Spotify's Web API developed the musicality measures that we used as the predictors in our regression, however, we don't suspect that Spotify is employing them for use in predicting a song's streaming success. Spotify likely uses these measures only for playlist construction or to personalize users' listening algorithms.
+
+Interestingly, our model did estimate statistically significant relationships between many of the predictors and the response, in the presence of the other predictors. We also failed to find evidence that our parameter estimates were biased by any influential observations (i.e., Cook's distance). The table below summarizes the inferential findings we made about the effect of each of the predictors on *Streams*, holding all else constant.
+
+*For every one unit increase in the following predictors, Streams changes by the corresponding percentage:*
+
+| Energy    | Loudness | Speechiness | Acousticness |
+|-----------|----------|-------------|--------------|
+| -71.19165 | 6.908164 | -84.23503   | -65.6916     |
+
+Importantly, all of the percentages above (except for Loudness) report the percentage change on *Stream* if the musicality factor was increased from 0 to 100% because they are all rated on a scale from 0 to 1. For example, if you increase the amount of speech in a song by 100%, then number of Streams decreases by 84.24%. We found this negative relationship to be true of multiple predictors; specifically *Speechiness*, *Acousticness*, and *Energy*. This may be the most relevant finding we can reliably report to our music industry stakeholders. We recommend keeping intensity, acoustic sounds, and talking low if the goal of the track is to produce a "hit". Conversely, *Loudness*, or how "strong" a song is, is positively related to number of streams. We report that for one-unit increase in loudness, the number of streams increases by 6.91%.
+
+Our group faced a number of challenges throughout the process of building our final MLR model. One challenge we think was particularly consequential was the choice of how to wrangle our data after realizing the issue of our dependent observations. We ultimately decided to keep only the most-streamed song from each artist, but we acknowledge that this choice left our data set with a clear bias toward already-popular music. This means that we constrained the ranges of our data set, and likely increased the risks and limitations associated with extrapolation. For future analyses, we would consider finding a data set with independent observations that provided a wider range of values for the predictors and response variables.
+
+------------------------------------------------------------------------
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#load libraries
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(psych)
+library(ggpubr)
+library(corrplot)
+library(ROCR)
+library(reshape2)
+library(leaps)
+library(car)
+
+#import data
+Data <- read.csv("Spotify_Youtube.csv", header = TRUE)
+
+#Drop X
+Data <- select(Data, -c(X))
+Data$Album_type <- factor(Data$Album_type)
+```
+
+# Logistic Regression:
+
+*to be answered using logistic regression*
+
+**Can we use a video's musicality factors to predict if the video will elicit a strong reaction?**
+
+In this social media age, music streaming is not the only goal for artists. Songs can become wildly popular as features on Instagram reels, Youtube videos, even television advertisements. In addition to streaming appeal, a song's success should be measured by it's viral, social appeal - does the song elicit a reaction from listeners? We debated whether to use Youtube likes or comments, both variables in this data set, as the measure of social appeal. Ultimately, we decided that likes are cheaper for listeners to give than comments, making comments a more robust measure. We will divide comments by views to standardize our measure of social appeal. To investigate this measure with logitistic regression, we will assign a new variable, *coms_factor*, as 1 if the ratio of comments to views is above the mean indicating the song caused a high reaction, and 0 if the ratio is below the mean indicating the song caused a low reaction. Given the variables in our data set detailed above, our goal is to see which factors of a song's musicality influence if a song caused a high reaction on Youtube.
+
+**Data Wrangling**
+
+The data wrangling we performed for this data set was to drop rows with any na values. This left 19549 observations which is still an adequate amount of data. Additionally we split the data into test and training sets using an 80/20 split.
+
+# Data Visualizations & Model Building
+
+```{r include=FALSE, warning=FALSE}
+#Create logistic regression variable
+#One thing to note is there are 569 NA values for Comments and 470 missing values for Views
+summary(Data$Comments)
+summary(Data$Views)
+
+#Our ratio will have 570 missing values which is 2.75% of our data so not a significant amount.
+coms_ratio <- Data$Comments/Data$Views
+Data <- cbind(Data, coms_ratio)
+mean(Data$coms_ratio, na.rm = TRUE)
+summary(coms_ratio)
+
+#If the coms ratio is less than the mean coms ratio there will be a 0, if it is greater then there will be a 1
+Data$coms_factor<-factor(ifelse(Data$coms_ratio < mean(Data$coms_ratio, na.rm = TRUE),0,1))
+                         
+#Data without missing values
+#Data_na_rem <- Data %>% drop_na(coms_factor)
+Data <- na.omit(Data)
+
+```
+
+**Data Visualizations**
+
+Valence might have a slight different in *coms_factor* but from the plots of the other numeric variable under consideration there does not appear be a noticeable difference between the response *coms_factor*.
+
+```{r echo=FALSE, warning=FALSE}
+plot_dance <- ggplot(Data, aes(x = coms_factor, y = Danceability, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Danceability by Coms_factor")
+
+plot_energy <- ggplot(Data, aes(x = coms_factor, y = Energy, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Energy by Coms_factor")
+
+plot_key <- ggplot(Data, aes(x = coms_factor, y = Key, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Key by Coms_factor")
+
+plot_loud <- ggplot(Data, aes(x = coms_factor, y = Loudness, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Loudness by Coms_factor")
+
+plot_speech <- ggplot(Data, aes(x = coms_factor, y = Speechiness, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Speechiness by Coms_factor")
+
+plot_acou <- ggplot(Data, aes(x = coms_factor, y = Acousticness, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Acousticness by Coms_factor")
+
+plot_inst <- ggplot(Data, aes(x = coms_factor, y = Instrumentalness, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Instrumentalness by Coms_factor")
+
+plot_live <- ggplot(Data, aes(x = coms_factor, y = Liveness, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Liveness by Coms_factor")
+
+plot_valence <- ggplot(Data, aes(x = coms_factor, y = Valence, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Valence by Coms_factor")
+
+plot_tempo <- ggplot(Data, aes(x = coms_factor, y = Tempo, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Tempo by Coms_factor")
+
+plot_duraction <- ggplot(Data, aes(x = coms_factor, y = Duration_ms, color = coms_factor)) +
+  geom_boxplot(outlier.colour="purple", outlier.shape=8) +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4)+
+  labs(title="Duration_ms by Coms_factor")
+
+ggpubr::ggarrange(plot_dance, plot_energy, plot_key,  plot_loud)
+ggpubr::ggarrange(plot_speech, plot_acou,  plot_inst, plot_live)
+ggpubr::ggarrange(plot_valence, plot_tempo, plot_duraction)
+```
+
+The majority of videos which do not cause a reaction are official videos while videos which do cause a reaction are a bit more even. The majority of videos which do not cause a reaction are licensed while videos which do cause a reaction are a much more even. We can see from this plot that the majority of album types are type album. The vast majority of videos which do not cause a reaction are albums. Whereas is is a bit more even for videos which do cause a reaction.
+
+```{r echo=FALSE, warning=FALSE}
+plot_off <- ggplot(Data, aes(x = coms_factor, fill = official_video))+
+  geom_bar(position="dodge") +
+  labs(title = "Coms_Factor by official_video")
+
+plot_lice <- ggplot(Data, aes(x = coms_factor, fill = Licensed))+
+  geom_bar(position="dodge") +
+  labs(title = "Coms_Factor by Licensed")
+
+plot_alTy<-ggplot(Data, aes(x = coms_factor, fill = Album_type))+
+  geom_bar(position="dodge") +
+  labs(title = "Coms_Factor by Album_type")
+
+ggpubr::ggarrange(plot_off, plot_lice, plot_alTy)
+
+```
+
+```{r echo = FALSE, warning=FALSE, include=FALSE}
+#Now we will split the data into test and training data
+set.seed(1)
+sample<-sample.int(nrow(Data), floor(.80*nrow(Data)), replace = F)
+train<-Data[sample, ]
+test<-Data[-sample, ]
+```
+
+**Model Building**
+
+For the first model we considered a model with the variables *Album_type*, *Danceability*, *Energy*, *Key*, *Loudness*, *Speechiness*, *Acousticness*, *Instrumentalness*, *Liveness*, *Valence*, *Tempo*, *Duration_ms*, *official_video* and *Licensed*. There are 2040 unique *Artists*, 2040 unique *Url_spotify*, 16866 distinct *Track*, 11,381 *Album*, 17831 distinct *Uri* values, 17540 distinct *Url_youtube* values, 17534 unique *Title* values, 6482 unique *Channel* values, and 16820 unique *description* values. Given these categorical variables have a large number of unique values they are not considered in this logistic regression model as some of them would be able to almost perfectly predict if the video will cause a reaction. Views and Likes are left out as well because they are highly correlated. Also our *coms_factor* variable is created from the *Comment* factor so that factor is left out as well. Given *stream* is associated with spotify and we are only looking at YouTube views, *stream* is not included in this model either.
+
+```{r echo=FALSE, warning=FALSE}
+numeric_Data <- select_if(Data, is.numeric)
+df_cor <- abs(cor(numeric_Data))
+data1 <- melt(df_cor)
+ggplot(data1, aes(x = Var1,
+                  y = Var2,
+                  fill = value))+geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  geom_tile()+scale_fill_gradient(high = "red", low = "blue") + 
+  geom_text(label = round(data1$value, 2)) +
+  xlab("") +
+  ylab("")
+```
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+#Now we will create a logistic model
+logistic_mod<-glm(coms_factor ~ Album_type + Danceability + Energy + Key + Loudness + Speechiness + Acousticness + Instrumentalness + Liveness + Valence + Tempo + Duration_ms + official_video + Licensed,family = "binomial", data=train)
+summary(logistic_mod)
+```
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+#Initial Diagnostics
+
+preds1<-predict(logistic_mod, newdata=test, type="response")
+rates1<-prediction(preds1, test$coms_factor)
+roc_result1<-performance(rates1,measure="tpr", x.measure="fpr")
+plot(roc_result1, main="ROC Curve Initial Model")
+lines(x = c(0,1), y = c(0,1), col="red")
+```
+
+```{r echo = FALSE, warning=FALSE, include=FALSE}
+auc1<-performance(rates1, measure = "auc")
+auc1@y.values
+```
+
+```{r echo = FALSE, include=FALSE, warning=FALSE}
+#accuracy score
+table(test$coms_factor, preds1>0.5)
+(54+2838)/(54+2838+70+948)
+
+#Our initial auc value is .6599636 and accuracy score is 0.7396419. Next we will consider forward, backward, and stepwise regression. 
+```
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+#Now we will use model selection techniques 
+#Forward Selection
+regnull <- glm(coms_factor~1, family = 'binomial', data=train)
+regfull <- glm(coms_factor ~ Album_type + Danceability + Energy + Key + Loudness + Speechiness + Acousticness + Instrumentalness + Liveness + Valence + Tempo + Duration_ms + official_video + Licensed,family = "binomial", data=train)
+
+
+forward_mod <- step(regnull, scope=list(lower=regnull, upper=regfull), trace = 0, direction="forward")
+forward_mod
+#The forward selection model has an AIC of 16740, AUC of 0.6604156 and an accuracy score of 0.7396419 which is the same as the initial model.
+```
+
+```{r echo=FALSE, include=FALSE, warning=FALSE, include=FALSE}
+#Forward Model Diagnostics
+predsF<-predict(forward_mod, newdata=test, type="response")
+ratesF<-prediction(predsF, test$coms_factor)
+aucF<-performance(ratesF, measure = "auc")
+aucF@y.values
+roc_resultF<-performance(ratesF,measure="tpr", x.measure="fpr")
+plot(roc_resultF, main="ROC Curve")
+lines(x = c(0,1), y = c(0,1), col="red")
+
+table(test$coms_factor, predsF>0.5)
+(2839+53)/(2839+53+69+949)
+```
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+#Backward selection
+backward_mod <- step(regfull, scope=list(lower=regnull, upper=regfull), trace = 0, direction="backward")
+backward_mod
+#The backward selection model has an AIC of 16740, AUC of 0.6604156 and an accuracy score of 0.7396419 which is the same as the initial model.
+```
+
+```{r echo=FALSE, include=FALSE, warning=FALSE, include=FALSE}
+#Backward Model Diagnostics
+predsB<-predict(backward_mod, newdata=test, type="response")
+ratesB<-prediction(predsB, test$coms_factor)
+aucB<-performance(ratesB, measure = "auc")
+aucB@y.values
+roc_resultB<-performance(ratesB,measure="tpr", x.measure="fpr")
+plot(roc_resultB, main="ROC Curve")
+lines(x = c(0,1), y = c(0,1), col="red")
+
+table(test$coms_factor, predsB>0.5)
+```
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+#Stepwise
+step_mod <- step(regnull, scope=list(lower=regnull, upper=regfull), trace = 0, direction="both")
+step_mod
+#The stepwise selection model has an AIC of 16740, AUC of 0.6604156 and an accuracy score of 0.7396419 which is the same as the initial model.
+```
+
+```{r echo=FALSE, include=FALSE, warning=FALSE}
+#Stepwise Model Diagnostics
+predsS<-predict(step_mod, newdata=test, type="response")
+ratesS<-prediction(predsS, test$coms_factor)
+aucS<-performance(ratesS, measure = "auc")
+aucS@y.values
+roc_resultS<-performance(ratesS,measure="tpr", x.measure="fpr")
+plot(roc_resultS, main="ROC Curve")
+lines(x = c(0,1), y = c(0,1), col="red")
+
+table(test$coms_factor, predsS>0.5)
+```
+
+The initial full model has an AUC value of .6599636 and accuracy score of 0.7396419. When using foreword, backward, and stepwise selection the models all had the same AIC score, AUC score, and accuracy score. These three model selection procedures suggested a model with these 10 variables : *Licensed*, *official_video*, *Album_type*, *Valence*, *Speechiness*, *Duration_ms*, *Instrumentalness*, *Acousticness*, *Danceability* and *Key* which are the same variables the initial model suggested. Interestingly all three methods of model selection produced models with the same AIC of 16740, ACU of 0.6604156, ROC curve, and accuracy rate of 0.7396419 which is the same accuracy rate as our initial model.
+
+```{r echo=FALSE, warning=FALSE}
+#Now we will evaluate our model
+final_mod <- glm(coms_factor ~ Licensed + Album_type + Valence + 
+    Speechiness + Duration_ms + Acousticness + Instrumentalness + 
+    Danceability + official_video + Key, data = train, family = 'binomial')
+
+summary(final_mod)
+
+```
+
+These are the log odds for the coefficients of the Final Model. *Speechiness* has the greatest effect of 1.485437107634 meaning for every unit increase in *Speechiness* the log odds of causing a reaction increases by 1.485437107634.
+
+```{r echo = FALSE, warning=FALSE}
+format(final_mod$coefficients, scientific = FALSE, big.mark = ',') 
+```
+
+These are the odds ratios for all the coefficients in the final model. Thus for every unit increase in *Valence* the odds of the video causing a reaction decreases by 0.5663281. Also, for every unit increase in *Speechiness* the odds of having a video which causes a reaction increases by 4.4168956. However, many of the factors do not seem to have a meaningful impact given the odds ratios are relatively small. An odds ratio of 1 indicted there is not a strong relationship. The larger the difference between one and the odds ratio the stranger the relationship.
+
+```{r echo = FALSE, warning=FALSE}
+exp(coef(final_mod))
+```
+
+When conducting a hypothesis test of the final model the null hypothesis is H0 : official_video = Licensed = Album_type = Valence = Speechiness = Duration_ms = Instrumentalness = Acousticness = Danceability = Key = 0, meaning none of these predictors are valuable. The alternate hypothesis is Ha : at least one of the coefficients in H0 is not zero, meaning atleast on is valuable in our model. Given the p-value is 0 we will reject the null hypothesis and conclude at least one of our coefficients is useful.
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+#p-value
+1-pchisq(17670-16719, 11)
+```
+
+None of the numeric variable in the model are highly correlated as can be seen by the correlation matrix bellow.
+
+```{r echo=FALSE, warning=FALSE}
+#Look at correlation plot
+train_model<-select(train, c('official_video', 'Album_type', 'Valence', 'Speechiness', 'Duration_ms', 'Instrumentalness', 'Acousticness', 'Danceability', 'Key', 'Licensed'))
+#head(train_model)
+
+numeric_train <- select_if(train_model, is.numeric)
+
+train_cor <- abs(cor(numeric_train))
+train1 <- melt(train_cor)
+ggplot(train1, aes(x = Var1,
+                  y = Var2,
+                  fill = value))+geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  geom_tile()+scale_fill_gradient(high = "red", low = "blue") + 
+  geom_text(label = round(train1$value, 2)) +
+  xlab("")+
+  ylab("")
+```
+
+Given all of the variable inflation factors (VIF)s are less than 5 there is not evidence for severe correlation between a given predictor variable and other predictor variables in the model. In this case, the coefficient estimates and p-values in the regression output are likely reliable.
+
+```{r echo=FALSE, warning=FALSE}
+vif_df<-as.data.frame(vif(final_mod))
+ggplot(vif_df, aes(x=rownames(vif_df), y = vif_df$GVIF)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  xlab("Factors") +
+  ylab("VIFs")
+
+```
+
+```{r echo=FALSE, warning=FALSE}
+#final model ROC Curve
+preds<-predict(final_mod, newdata=test, type="response")
+rates<-prediction(preds, test$coms_factor)
+roc_result<-performance(rates,measure="tpr", x.measure="fpr")
+plot(roc_result, main="ROC Curve Final Model")
+lines(x = c(0,1), y = c(0,1), col="red")
+
+```
+
+From this AUC value there is marginal improvement from our initial model with an AUC of 0.6604156 compared to our initial AUC of 0.6599636.
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+auc<-performance(rates, measure = "auc")
+auc@y.values
+```
+
+```{r echo = FALSE, warning=FALSE}
+#Function to calculate accuracy score rate, FP, TP for various thresholds.
+#thresh <- .05
+thresh_L <- seq(.05, .75, .05)
+errorTable_.5 <- table(test$coms_factor, preds>.5)
+#errorT <- as.data.frame(table(test$coms_factor, preds>.5))
+df1 = data.frame()
+
+for (i in thresh_L){
+  errorTable <- table(test$coms_factor, preds>i)
+  AccuracyScore <- (errorTable[1,1]+errorTable[2,2])/(errorTable[1,1]+errorTable[2,2]+errorTable[1,2]+errorTable[2,1])
+  FP <- (errorTable[1,2])/(errorTable[1,1]+errorTable[1,2])
+  TP <- (errorTable[2,2])/(errorTable[2,1]+errorTable[2,2])
+  df1 = rbind(df1, list(i, AccuracyScore, FP, TP))
+}
+colnames(df1)<-c("Threshold" , "Accuracy Score", "False Positive", "True Positive" )
+
+df1
+
+##We may want to lower the false negatives so we would make the threshold lower. This will make the false positives higher though. Let the new threshold be .35
+```
+
+# Conclusion
+
+We would recommend a model with the factors *Licensed*, *official_video*, *Album_type*, *Valence*, *Speechiness*, *Duration_ms*, *Instrumentalness*, *Acousticness*, *Danceability* and *Key*. While *Key* and a True *official_video* were not statistically significant at the 95% confidence level, they were at a 90% confidence level. All other factors were statistically significant at a 95% confidence level except the compilation *Album Type*. *Speechiness* had the strongest relationship to the response with an odds ratio of 4.4168956. Valence had an odds ratio of -0.4336719, but many other factors had odds ratios which did not indicate a strong relationship. One reason for this could be the size of our data set. Also the AUC score of the model is 0.6604156 which is only slightly better than random guessing. Random guessing would have an ACU score of .5 and a model which predicts perfectly would have an AUC score of 1.
+
+Additionally, there is unbalance in our data. The number of videos which met the threshold of what is considered causing a reaction is 4949. While the number of videos which do not cause a reaction is 14600. Thus, about 1/3 of our videos caused a reaction. As we increase the threshold our accuracy score increases. However, the True Positive Rate severely decreases. It is better have a higher True Positive Rate which would increase the False Positive Rate because we would rather predict a song will not cause a reaction if in fact it does, than predict it will cause a reaction when it does not. Due to this we would recommend a threshold of .25 because it gives an accuracy score of 0.6181586, a False Positive Rate of 0.376547455, and a True Positive Rate of 0.602794411. While we could have a perfect True Positive Rate with a threshold of .05 our accuracy score would be .2578005. Thus we recommend a threshold of .25 if this model is used. That being said for all the reasons listed above, this model only does slightly better than random guessing, so a more advanced model should be considered in the future.
